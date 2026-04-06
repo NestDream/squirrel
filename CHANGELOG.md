@@ -5,6 +5,10 @@
 - use macos-latest image runner (550b355)
 - upgrade action with node 24 (2cc3d17)
 
+### 新功能 | New Features
+- 新增光標旁輸入狀態指示器，以 `style/show_input_indicator: true/false` 控制
+- Add cursor input indicator to show current input mode near cursor
+
 ### 雜項 | Miscellaneous
 - update Icon that can adapt with system color scheme (714325e)
 - remove unused arg in bump_version (32db10d)

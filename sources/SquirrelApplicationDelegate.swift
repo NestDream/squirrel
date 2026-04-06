@@ -17,6 +17,7 @@ final class SquirrelApplicationDelegate: NSObject, NSApplicationDelegate, SPUSta
   let rimeAPI: RimeApi_stdbool = rime_get_api_stdbool().pointee
   var config: SquirrelConfig?
   var panel: SquirrelPanel?
+  var indicator: SquirrelIndicator?
   var enableNotifications = false
   let updateController = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
   var supportsGentleScheduledUpdateReminders: Bool {
@@ -54,6 +55,7 @@ final class SquirrelApplicationDelegate: NSObject, NSApplicationDelegate, SPUSta
 
   func applicationWillFinishLaunching(_ notification: Notification) {
     panel = SquirrelPanel(position: .zero)
+    indicator = SquirrelIndicator()
     addObservers()
   }
 
@@ -62,6 +64,7 @@ final class SquirrelApplicationDelegate: NSObject, NSApplicationDelegate, SPUSta
     NotificationCenter.default.removeObserver(self)
     DistributedNotificationCenter.default().removeObserver(self)
     panel?.hide()
+    indicator?.hide()
   }
 
   func deploy() {
@@ -166,6 +169,16 @@ final class SquirrelApplicationDelegate: NSObject, NSApplicationDelegate, SPUSta
       panel.load(config: config, forDarkMode: false)
       panel.load(config: config, forDarkMode: true)
     }
+
+    let showIndicator = config?.getBool("style/show_input_indicator") ?? false
+    indicator?.enabled = showIndicator
+    if showIndicator {
+      let colorSpace: SquirrelTheme.RimeColorSpace = .from(name: config?.getString("style/color_space") ?? "")
+      indicator?.chineseColor = config?.getColor("style/indicator_chinese_color", inSpace: colorSpace)
+        ?? NSColor(srgbRed: 0, green: 0, blue: 1.0, alpha: 1.0)
+      indicator?.asciiColor = config?.getColor("style/indicator_ascii_color", inSpace: colorSpace)
+        ?? NSColor(srgbRed: 1.0, green: 0.647, blue: 0, alpha: 1.0)
+    }
   }
 
   func loadSettings(for schemaID: String) {
@@ -269,6 +282,9 @@ private func notificationHandler(contextObject: UnsafeMutableRawPointer?, sessio
       String(messageValue![messageValue!.index(after: messageValue!.startIndex)...])
     }
     if let optionName = optionName {
+      if optionName == "ascii_mode" {
+        delegate.indicator?.update(asciiMode: state, cursorRect: delegate.indicator?.cursorRect ?? .zero)
+      }
       optionName.withCString { name in
         let stateLabelLong = delegate.rimeAPI.get_state_label_abbreviated(sessionId, name, state, false)
         let stateLabelShort = delegate.rimeAPI.get_state_label_abbreviated(sessionId, name, state, true)

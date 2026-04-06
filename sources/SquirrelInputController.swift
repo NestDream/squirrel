@@ -195,6 +195,14 @@ final class SquirrelInputController: IMKInputController {
       client?.overrideKeyboard(withKeyboardNamed: keyboardLayout)
     }
     preedit = ""
+
+    // Show Indicator with current ascii_mode when session activates
+    if let indicator = NSApp.squirrelAppDelegate.indicator, indicator.enabled {
+      let isAscii = rimeAPI.get_option(session, "ascii_mode")
+      var inputPos = NSRect()
+      client?.attributes(forCharacterIndex: 0, lineHeightRectangle: &inputPos)
+      indicator.update(asciiMode: isAscii, cursorRect: inputPos)
+    }
   }
 
   override init!(server: IMKServer!, delegate: Any!, client: Any!) {
@@ -206,6 +214,7 @@ final class SquirrelInputController: IMKInputController {
 
   override func deactivateServer(_ sender: Any!) {
     // print("[DEBUG] deactivateServer: \(sender ?? "nil")")
+    NSApp.squirrelAppDelegate.indicator?.hide()
     hidePalettes()
     commitComposition(sender)
     client = nil
@@ -213,6 +222,7 @@ final class SquirrelInputController: IMKInputController {
 
   override func hidePalettes() {
     NSApp.squirrelAppDelegate.panel?.hide()
+    NSApp.squirrelAppDelegate.indicator?.hide()
     super.hidePalettes()
   }
 
@@ -459,6 +469,14 @@ private extension SquirrelInputController {
       _ = rimeAPI.free_status(&status)
     }
 
+    // Update Indicator
+    if let indicator = NSApp.squirrelAppDelegate.indicator, indicator.enabled {
+      var inputPos = NSRect()
+      client?.attributes(forCharacterIndex: 0, lineHeightRectangle: &inputPos)
+      let isAscii = rimeAPI.get_option(session, "ascii_mode")
+      indicator.update(asciiMode: isAscii, cursorRect: inputPos)
+    }
+
     var ctx = RimeContext_stdbool.rimeStructInit()
     if rimeAPI.get_context(session, &ctx) {
       // update preedit text
@@ -593,6 +611,9 @@ private extension SquirrelInputController {
   func showPanel(preedit: String, selRange: NSRange, caretPos: Int, candidates: [String], comments: [String], labels: [String], highlighted: Int, page: Int, lastPage: Bool) {
     // print("[DEBUG] showPanelWithPreedit:...:")
     guard let client = client else { return }
+    if candidates.count > 0 {
+      NSApp.squirrelAppDelegate.indicator?.hide()
+    }
     var inputPos = NSRect()
     client.attributes(forCharacterIndex: 0, lineHeightRectangle: &inputPos)
     if let panel = NSApp.squirrelAppDelegate.panel {

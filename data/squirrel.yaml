@@ -36,6 +36,13 @@ style:
   # Enable to show small arrows that indicates if paging up/down is possible
   show_paging: false
 
+  # 是否显示光标旁输入状态指示器 / Whether to show input mode indicator near cursor
+  # show_input_indicator: false
+  # 中文模式指示器颜色 (BGR格式) / Chinese mode indicator color (BGR format)
+  # indicator_chinese_color: 0x0000FF
+  # 英文模式指示器颜色 (BGR格式) / ASCII mode indicator color (BGR format)
+  # indicator_ascii_color: 0x00A5FF
+
   corner_radius: 7
   hilited_corner_radius: 0
   border_height: -2
