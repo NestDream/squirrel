@@ -165,16 +165,15 @@ struct SquirrelIndicatorScreenBoundsPropertyTests {
 /// (so boundary clamping does not trigger), the indicator's origin should be at
 /// exactly `(cursorRect.maxX + offsetX, cursorRect.maxY + offsetY)`.
 ///
-/// Tag: Feature: cursor-input-indicator, Property 3: 光标右侧居中偏移定位
+/// Tag: Feature: cursor-input-indicator, Property 3: 光标下方居中定位
 @MainActor
 struct SquirrelIndicatorOffsetPositionPropertyTests {
 
-  /// Generate a random CGFloat in the given range
   private func randomCGFloat(in range: ClosedRange<CGFloat>, using rng: inout some RandomNumberGenerator) -> CGFloat {
     CGFloat.random(in: range, using: &rng)
   }
 
-  @Test("Property 3: 光标右侧居中偏移定位 - indicator is placed at fixed offset from cursor right side, vertically centered")
+  @Test("Property 3: 光标下方居中定位 - indicator is placed below cursor, horizontally centered")
   func cursorOffsetPositionPropertyTest() {
     var rng = SystemRandomNumberGenerator()
     let iterations = 200
@@ -183,55 +182,50 @@ struct SquirrelIndicatorOffsetPositionPropertyTests {
     let offsetY = SquirrelIndicator.offsetY
 
     for _ in 0..<iterations {
-      // Generate a random screen rect with at least 200x200
       let screenX = randomCGFloat(in: -2000...2000, using: &rng)
       let screenY = randomCGFloat(in: -2000...2000, using: &rng)
       let screenW = randomCGFloat(in: 200...4000, using: &rng)
       let screenH = randomCGFloat(in: 200...4000, using: &rng)
       let screenRect = NSRect(x: screenX, y: screenY, width: screenW, height: screenH)
 
-      // Generate a cursor rect that won't trigger boundary clamping
-      // X constraint: cursorRect.maxX + offsetX >= screenRect.minX
-      //               cursorRect.maxX + offsetX + indicatorSize.width <= screenRect.maxX
-      let maxXLower = screenRect.minX - offsetX
-      let maxXUpper = screenRect.maxX - offsetX - indicatorSize.width
+      // X constraint: cursorRect.midX - indicatorSize.width/2 + offsetX >= screenRect.minX
+      //               cursorRect.midX - indicatorSize.width/2 + offsetX + indicatorSize.width <= screenRect.maxX
+      // => cursorRect.midX >= screenRect.minX + indicatorSize.width/2 - offsetX
+      // => cursorRect.midX <= screenRect.maxX - indicatorSize.width/2 - offsetX
+      let midXLower = screenRect.minX + indicatorSize.width / 2 - offsetX
+      let midXUpper = screenRect.maxX - indicatorSize.width / 2 - offsetX
 
-      // Y constraint: cursorRect.midY - indicatorSize.height/2 + offsetY >= screenRect.minY
-      //               cursorRect.midY - indicatorSize.height/2 + offsetY + indicatorSize.height <= screenRect.maxY
-      // => cursorRect.midY >= screenRect.minY + indicatorSize.height/2 - offsetY
-      // => cursorRect.midY <= screenRect.maxY - indicatorSize.height/2 - offsetY
-      let midYLower = screenRect.minY + indicatorSize.height / 2 - offsetY
-      let midYUpper = screenRect.maxY - indicatorSize.height / 2 - offsetY
+      // Y constraint: cursorRect.minY - indicatorSize.height - offsetY >= screenRect.minY
+      // => cursorRect.minY >= screenRect.minY + indicatorSize.height + offsetY
+      let minYLower = screenRect.minY + indicatorSize.height + offsetY + 30
+      let minYUpper = screenRect.maxY - 10
 
-      guard maxXLower < maxXUpper, midYLower < midYUpper else { continue }
+      guard midXLower < midXUpper, minYLower < minYUpper else { continue }
 
-      let cursorMaxX = randomCGFloat(in: maxXLower...maxXUpper, using: &rng)
-      let cursorMidY = randomCGFloat(in: midYLower...midYUpper, using: &rng)
+      let cursorMidX = randomCGFloat(in: midXLower...midXUpper, using: &rng)
+      let cursorMinY = randomCGFloat(in: minYLower...minYUpper, using: &rng)
 
-      // Give cursor a random width/height
-      let cursorW = randomCGFloat(in: 0...20, using: &rng)
+      let cursorW = randomCGFloat(in: 1...10, using: &rng)
       let cursorH = randomCGFloat(in: 10...30, using: &rng)
-      let cursorRect = NSRect(x: cursorMaxX - cursorW, y: cursorMidY - cursorH / 2, width: cursorW, height: cursorH)
+      let cursorRect = NSRect(x: cursorMidX - cursorW / 2, y: cursorMinY, width: cursorW, height: cursorH)
 
-      // Exercise the pure function
       let origin = SquirrelIndicator.calculatePosition(
         cursorRect: cursorRect,
         indicatorSize: indicatorSize,
         screenRect: screenRect
       )
 
-      // Verify: x = cursorRect.maxX + offsetX, y = cursorRect.midY - indicatorSize.height/2 + offsetY
-      let expectedX = cursorRect.maxX + offsetX
-      let expectedY = cursorRect.midY - indicatorSize.height / 2 + offsetY
+      let expectedX = cursorRect.midX - indicatorSize.width / 2 + offsetX
+      let expectedY = cursorRect.minY - indicatorSize.height - offsetY
       let epsilon: CGFloat = 0.001
 
       #expect(
         abs(origin.x - expectedX) < epsilon,
-        "origin.x (\(origin.x)) should equal cursorRect.maxX + offsetX (\(expectedX))"
+        "origin.x (\(origin.x)) should equal cursorRect.midX - w/2 + offsetX (\(expectedX))"
       )
       #expect(
         abs(origin.y - expectedY) < epsilon,
-        "origin.y (\(origin.y)) should equal cursorRect.midY - h/2 + offsetY (\(expectedY))"
+        "origin.y (\(origin.y)) should equal cursorRect.minY - h - offsetY (\(expectedY))"
       )
     }
   }

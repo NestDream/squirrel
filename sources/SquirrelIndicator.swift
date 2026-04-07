@@ -26,10 +26,10 @@ final class SquirrelIndicator: NSPanel {
   /// Indicator 窗口固定尺寸
   static let indicatorSize = NSSize(width: 20, height: 20)
 
-  /// 光标右侧偏移量
-  static let offsetX: CGFloat = 4
-  /// 垂直偏移量（相对于光标中心）
-  static let offsetY: CGFloat = 0
+  /// 水平偏移量
+  static let offsetX: CGFloat = 0
+  /// 光标下方偏移量
+  static let offsetY: CGFloat = 2
 
   /// 正常显示时的透明度
   private static let normalAlpha: CGFloat = 0.85
@@ -74,8 +74,10 @@ final class SquirrelIndicator: NSPanel {
     label.isEditable = false
     label.isSelectable = false
     label.alignment = .center
-    // 垂直居中：给 label 一个略微下移的 frame 来补偿 NSTextField 的内部 padding
-    label.frame = NSRect(x: 0, y: -1, width: SquirrelIndicator.indicatorSize.width, height: SquirrelIndicator.indicatorSize.height)
+    label.textColor = .white
+    label.frame = NSRect(origin: .zero, size: SquirrelIndicator.indicatorSize)
+    // 使用 autoresizing 让 label 填满 contentView
+    label.autoresizingMask = [.width, .height]
     self.contentView?.addSubview(label)
     refreshLabel()
   }
@@ -88,25 +90,26 @@ final class SquirrelIndicator: NSPanel {
   /// 根据当前 asciiMode 刷新文字标签和颜色
   private func refreshLabel() {
     let text = asciiMode ? "A" : "中"
-    let color = SquirrelIndicator.colorForMode(asciiMode: asciiMode, chineseColor: chineseColor, asciiColor: asciiColor)
+    let modeColor = SquirrelIndicator.colorForMode(asciiMode: asciiMode, chineseColor: chineseColor, asciiColor: asciiColor)
 
     label.stringValue = text
-    label.textColor = color
-    label.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
+    label.textColor = .white
+    // "A" 用稍大字号让视觉大小与 "中" 匹配
+    label.font = asciiMode
+      ? NSFont.systemFont(ofSize: 12, weight: .bold)
+      : NSFont.systemFont(ofSize: 11, weight: .semibold)
 
-    // 更新背景色：使用模式颜色的极淡版本叠加在深色底上
-    let bgColor = color.withAlphaComponent(0.15)
-    backgroundView.layer?.backgroundColor = NSColor(white: 0.1, alpha: 0.75).blended(withFraction: 0.3, of: bgColor)?.cgColor
-      ?? NSColor(white: 0.1, alpha: 0.75).cgColor
+    // 背景色使用模式颜色，带半透明
+    backgroundView.layer?.backgroundColor = modeColor.withAlphaComponent(0.85).cgColor
   }
 
   /// 计算 Indicator 窗口位置（纯函数，可独立测试）
-  /// 放在光标正右侧，垂直居中对齐
+  /// 放在光标正下方，水平居中对齐
   static func calculatePosition(cursorRect: NSRect, indicatorSize: NSSize, screenRect: NSRect) -> NSPoint {
-    // 光标右侧，带小间距
-    var x = cursorRect.maxX + offsetX
-    // 垂直居中于光标
-    var y = cursorRect.midY - indicatorSize.height / 2 + offsetY
+    // 水平居中于光标
+    var x = cursorRect.midX - indicatorSize.width / 2 + offsetX
+    // 光标下方，带小间距
+    var y = cursorRect.minY - indicatorSize.height - offsetY
 
     if x + indicatorSize.width > screenRect.maxX {
       x = screenRect.maxX - indicatorSize.width
