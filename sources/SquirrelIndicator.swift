@@ -26,20 +26,46 @@ final class SquirrelIndicator: NSPanel {
   /// Indicator 窗口固定尺寸
   static let indicatorSize = NSSize(width: 20, height: 20)
 
+  /// 光标右侧偏移量
+  static let offsetX: CGFloat = 2
+  /// 光标上方偏移量
+  static let offsetY: CGFloat = 2
+
+  /// 正常显示时的透明度
+  private static let normalAlpha: CGFloat = 0.85
+  /// 候选面板显示时的降低透明度
+  private static let dimmedAlpha: CGFloat = 0.3
+  /// 动画时长
+  private static let animationDuration: TimeInterval = 0.15
+
+  /// 圆角背景视图
+  private let backgroundView: NSView
   /// 文字标签
   private let label: NSTextField
 
   init() {
     let contentRect = NSRect(origin: .zero, size: SquirrelIndicator.indicatorSize)
+    backgroundView = NSView(frame: contentRect)
     label = NSTextField(labelWithString: "")
     super.init(contentRect: contentRect, styleMask: .nonactivatingPanel, backing: .buffered, defer: true)
     self.level = .init(Int(CGShieldingWindowLevel()))
     self.ignoresMouseEvents = true
-    self.hasShadow = false
+    self.hasShadow = true
     self.isOpaque = false
     self.backgroundColor = .clear
+    self.alphaValue = SquirrelIndicator.normalAlpha
 
+    setupBackground()
     setupLabel()
+  }
+
+  private func setupBackground() {
+    backgroundView.wantsLayer = true
+    backgroundView.layer?.cornerRadius = 4
+    backgroundView.layer?.masksToBounds = true
+    // 半透明深色背景，类似 macOS 系统气泡
+    backgroundView.layer?.backgroundColor = NSColor(white: 0.1, alpha: 0.75).cgColor
+    self.contentView?.addSubview(backgroundView)
   }
 
   private func setupLabel() {
@@ -53,52 +79,40 @@ final class SquirrelIndicator: NSPanel {
     refreshLabel()
   }
 
-  /// 光标右侧偏移量
-  static let offsetX: CGFloat = 2
-  /// 光标上方偏移量
-  static let offsetY: CGFloat = 2
-
   /// 根据 asciiMode 选择对应的显示颜色（纯函数，可独立测试）
-  /// - Parameters:
-  ///   - asciiMode: 是否为 ASCII 模式
-  ///   - chineseColor: 中文模式颜色
-  ///   - asciiColor: 英文模式颜色
-  /// - Returns: 当前模式对应的颜色
   nonisolated static func colorForMode(asciiMode: Bool, chineseColor: NSColor, asciiColor: NSColor) -> NSColor {
     asciiMode ? asciiColor : chineseColor
   }
 
   /// 根据当前 asciiMode 刷新文字标签和颜色
   private func refreshLabel() {
-    label.stringValue = asciiMode ? "A" : "中"
-    label.textColor = SquirrelIndicator.colorForMode(asciiMode: asciiMode, chineseColor: chineseColor, asciiColor: asciiColor)
-    label.font = NSFont.boldSystemFont(ofSize: 12)
+    let text = asciiMode ? "A" : "中"
+    let color = SquirrelIndicator.colorForMode(asciiMode: asciiMode, chineseColor: chineseColor, asciiColor: asciiColor)
+
+    label.stringValue = text
+    label.textColor = color
+    label.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
+
+    // 更新背景色：使用模式颜色的极淡版本叠加在深色底上
+    let bgColor = color.withAlphaComponent(0.15)
+    backgroundView.layer?.backgroundColor = NSColor(white: 0.1, alpha: 0.75).blended(withFraction: 0.3, of: bgColor)?.cgColor
+      ?? NSColor(white: 0.1, alpha: 0.75).cgColor
   }
 
   /// 计算 Indicator 窗口位置（纯函数，可独立测试）
-  /// - Parameters:
-  ///   - cursorRect: 光标矩形（屏幕坐标）
-  ///   - indicatorSize: Indicator 窗口尺寸
-  ///   - screenRect: 屏幕可见区域
-  /// - Returns: Indicator 窗口的 origin 点
   static func calculatePosition(cursorRect: NSRect, indicatorSize: NSSize, screenRect: NSRect) -> NSPoint {
-    // 默认位置：光标右上方，带小间距偏移
     var x = cursorRect.maxX + offsetX
     var y = cursorRect.maxY + offsetY
 
-    // 屏幕右边界约束
     if x + indicatorSize.width > screenRect.maxX {
       x = screenRect.maxX - indicatorSize.width
     }
-    // 屏幕左边界约束
     if x < screenRect.minX {
       x = screenRect.minX
     }
-    // 屏幕上边界约束
     if y + indicatorSize.height > screenRect.maxY {
       y = screenRect.maxY - indicatorSize.height
     }
-    // 屏幕下边界约束
     if y < screenRect.minY {
       y = screenRect.minY
     }
@@ -106,7 +120,7 @@ final class SquirrelIndicator: NSPanel {
     return NSPoint(x: x, y: y)
   }
 
-  /// 获取包含光标位置的屏幕 frame（参考 SquirrelPanel.currentScreen()）
+  /// 获取包含光标位置的屏幕 frame
   private func currentScreenRect() -> NSRect {
     var rect = NSScreen.main?.visibleFrame ?? .zero
     for screen in NSScreen.screens where screen.frame.contains(cursorRect.origin) {
@@ -118,12 +132,12 @@ final class SquirrelIndicator: NSPanel {
 
   /// 更新输入模式并刷新显示
   func update(asciiMode: Bool, cursorRect: NSRect) {
-    // 零矩形光标位置：隐藏 Indicator
     if cursorRect == .zero {
       hide()
       return
     }
 
+    let modeChanged = self.asciiMode != asciiMode
     self.asciiMode = asciiMode
     self.cursorRect = cursorRect
     refreshLabel()
@@ -136,6 +150,21 @@ final class SquirrelIndicator: NSPanel {
     )
     let frame = NSRect(origin: origin, size: SquirrelIndicator.indicatorSize)
     setFrame(frame, display: true)
+
+    // 模式切换时用动画恢复到正常透明度
+    if modeChanged {
+      NSAnimationContext.runAnimationGroup { context in
+        context.duration = SquirrelIndicator.animationDuration
+        self.animator().alphaValue = SquirrelIndicator.normalAlpha
+      }
+    } else if self.alphaValue < SquirrelIndicator.normalAlpha {
+      // 从 dimmed 状态恢复
+      NSAnimationContext.runAnimationGroup { context in
+        context.duration = SquirrelIndicator.animationDuration
+        self.animator().alphaValue = SquirrelIndicator.normalAlpha
+      }
+    }
+
     show()
   }
 
@@ -148,5 +177,13 @@ final class SquirrelIndicator: NSPanel {
   /// 隐藏 Indicator
   func hide() {
     orderOut(nil)
+  }
+
+  /// 降低透明度（候选面板显示时调用，而非完全隐藏）
+  func dim() {
+    NSAnimationContext.runAnimationGroup { context in
+      context.duration = SquirrelIndicator.animationDuration
+      self.animator().alphaValue = SquirrelIndicator.dimmedAlpha
+    }
   }
 }

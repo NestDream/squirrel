@@ -612,7 +612,7 @@ private extension SquirrelInputController {
     // print("[DEBUG] showPanelWithPreedit:...:")
     guard let client = client else { return }
     if candidates.count > 0 {
-      NSApp.squirrelAppDelegate.indicator?.hide()
+      NSApp.squirrelAppDelegate.indicator?.dim()
     }
     var inputPos = NSRect()
     client.attributes(forCharacterIndex: 0, lineHeightRectangle: &inputPos)
