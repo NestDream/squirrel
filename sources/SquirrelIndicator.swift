@@ -14,8 +14,8 @@ final class SquirrelIndicator: NSPanel {
   /// 是否启用 Indicator
   var enabled: Bool = false
 
-  /// 中文模式颜色（默认蓝色）
-  var chineseColor: NSColor = NSColor(srgbRed: 0, green: 0, blue: 1.0, alpha: 1.0)
+  /// 中文模式颜色（默认淡蓝色）
+  var chineseColor: NSColor = NSColor(srgbRed: 0.4, green: 0.7, blue: 1.0, alpha: 1.0)
 
   /// 英文模式颜色（默认橙色）
   var asciiColor: NSColor = NSColor(srgbRed: 1.0, green: 0.647, blue: 0, alpha: 1.0)
@@ -27,9 +27,9 @@ final class SquirrelIndicator: NSPanel {
   static let indicatorSize = NSSize(width: 20, height: 20)
 
   /// 光标右侧偏移量
-  static let offsetX: CGFloat = 2
-  /// 光标上方偏移量
-  static let offsetY: CGFloat = 2
+  static let offsetX: CGFloat = 4
+  /// 垂直偏移量（相对于光标中心）
+  static let offsetY: CGFloat = 0
 
   /// 正常显示时的透明度
   private static let normalAlpha: CGFloat = 0.85
@@ -74,7 +74,8 @@ final class SquirrelIndicator: NSPanel {
     label.isEditable = false
     label.isSelectable = false
     label.alignment = .center
-    label.frame = NSRect(origin: .zero, size: SquirrelIndicator.indicatorSize)
+    // 垂直居中：给 label 一个略微下移的 frame 来补偿 NSTextField 的内部 padding
+    label.frame = NSRect(x: 0, y: -1, width: SquirrelIndicator.indicatorSize.width, height: SquirrelIndicator.indicatorSize.height)
     self.contentView?.addSubview(label)
     refreshLabel()
   }
@@ -100,9 +101,12 @@ final class SquirrelIndicator: NSPanel {
   }
 
   /// 计算 Indicator 窗口位置（纯函数，可独立测试）
+  /// 放在光标正右侧，垂直居中对齐
   static func calculatePosition(cursorRect: NSRect, indicatorSize: NSSize, screenRect: NSRect) -> NSPoint {
+    // 光标右侧，带小间距
     var x = cursorRect.maxX + offsetX
-    var y = cursorRect.maxY + offsetY
+    // 垂直居中于光标
+    var y = cursorRect.midY - indicatorSize.height / 2 + offsetY
 
     if x + indicatorSize.width > screenRect.maxX {
       x = screenRect.maxX - indicatorSize.width

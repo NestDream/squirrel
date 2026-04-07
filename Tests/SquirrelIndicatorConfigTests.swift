@@ -37,12 +37,12 @@ struct SquirrelIndicatorDefaultValuesTests {
             "When show_input_indicator is not set, enabled should default to false")
   }
 
-  @Test("Default chineseColor is blue (0, 0, 1, 1)")
-  func defaultChineseColorIsBlue() {
+  @Test("Default chineseColor is light blue (0.4, 0.7, 1.0, 1)")
+  func defaultChineseColorIsLightBlue() {
     let indicator = SquirrelIndicator()
-    let expectedBlue = NSColor(srgbRed: 0, green: 0, blue: 1.0, alpha: 1.0)
+    let expectedBlue = NSColor(srgbRed: 0.4, green: 0.7, blue: 1.0, alpha: 1.0)
     #expect(colorsEqual(indicator.chineseColor, expectedBlue),
-            "Default chineseColor should be blue (sRGB 0, 0, 1, 1)")
+            "Default chineseColor should be light blue (sRGB 0.4, 0.7, 1.0, 1)")
   }
 
   @Test("Default asciiColor is orange (1, 0.647, 0, 1)")

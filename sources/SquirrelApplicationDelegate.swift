@@ -175,7 +175,7 @@ final class SquirrelApplicationDelegate: NSObject, NSApplicationDelegate, SPUSta
     if showIndicator {
       let colorSpace: SquirrelTheme.RimeColorSpace = .from(name: config?.getString("style/color_space") ?? "")
       indicator?.chineseColor = config?.getColor("style/indicator_chinese_color", inSpace: colorSpace)
-        ?? NSColor(srgbRed: 0, green: 0, blue: 1.0, alpha: 1.0)
+        ?? NSColor(srgbRed: 0.4, green: 0.7, blue: 1.0, alpha: 1.0)
       indicator?.asciiColor = config?.getColor("style/indicator_ascii_color", inSpace: colorSpace)
         ?? NSColor(srgbRed: 1.0, green: 0.647, blue: 0, alpha: 1.0)
     }
