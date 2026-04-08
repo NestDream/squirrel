@@ -42,6 +42,9 @@ style:
   # indicator_chinese_color: 0x0000FF
   # 英文模式指示器颜色 (BGR格式) / ASCII mode indicator color (BGR format)
   # indicator_ascii_color: 0x00A5FF
+  # 指示器是否跟随光标 (true=跟随光标, false=固定在输入起始位置)
+  # Whether indicator follows cursor (true) or stays at input start position (false)
+  # indicator_follow_cursor: true
 
   corner_radius: 7
   hilited_corner_radius: 0

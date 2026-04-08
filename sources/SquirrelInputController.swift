@@ -201,6 +201,8 @@ final class SquirrelInputController: IMKInputController {
       let isAscii = rimeAPI.get_option(session, "ascii_mode")
       var inputPos = NSRect()
       client?.attributes(forCharacterIndex: 0, lineHeightRectangle: &inputPos)
+      // 记录初始位置用于固定模式
+      indicator.fixedRect = inputPos
       indicator.update(asciiMode: isAscii, cursorRect: inputPos)
     }
   }
@@ -482,14 +484,19 @@ private extension SquirrelInputController {
         var inputPos = NSRect()
         client?.attributes(forCharacterIndex: 0, lineHeightRectangle: &inputPos)
 
-        // 没有 preedit 且位置跳变超过 100px 时（如 Ctrl+A 全选），保持原位只更新模式
-        let lastPos = indicator.cursorRect
-        let jumped = lastPos != .zero && inputPos != .zero
-          && (abs(inputPos.origin.x - lastPos.origin.x) > 100 || abs(inputPos.origin.y - lastPos.origin.y) > 100)
-        if preedit.isEmpty && jumped {
-          indicator.update(asciiMode: isAscii, cursorRect: lastPos)
+        if indicator.followCursor {
+          // 跟随光标模式：没有 preedit 且位置跳变超过 100px 时保持原位
+          let lastPos = indicator.cursorRect
+          let jumped = lastPos != .zero && inputPos != .zero
+            && (abs(inputPos.origin.x - lastPos.origin.x) > 100 || abs(inputPos.origin.y - lastPos.origin.y) > 100)
+          if preedit.isEmpty && jumped {
+            indicator.update(asciiMode: isAscii, cursorRect: lastPos)
+          } else {
+            indicator.update(asciiMode: isAscii, cursorRect: inputPos)
+          }
         } else {
-          indicator.update(asciiMode: isAscii, cursorRect: inputPos)
+          // 固定模式：始终使用 activateServer 时记录的初始位置
+          indicator.update(asciiMode: isAscii, cursorRect: indicator.fixedRect)
         }
       }
 

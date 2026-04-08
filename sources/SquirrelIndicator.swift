@@ -33,9 +33,13 @@ private class IndicatorContentView: NSView {
 final class SquirrelIndicator: NSPanel {
   private(set) var asciiMode: Bool = false
   var enabled: Bool = false
+  /// 是否跟随光标（true=跟随光标，false=固定在第一个字前面）
+  var followCursor: Bool = true
   var chineseColor: NSColor = NSColor(srgbRed: 0.4, green: 0.7, blue: 1.0, alpha: 1.0)
   var asciiColor: NSColor = NSColor(srgbRed: 1.0, green: 0.647, blue: 0, alpha: 1.0)
   var cursorRect: NSRect = .zero
+  /// 固定模式下记录的初始位置（activateServer 时设置）
+  var fixedRect: NSRect = .zero
 
   static let indicatorSize = NSSize(width: 20, height: 20)
   static let offsetX: CGFloat = 0

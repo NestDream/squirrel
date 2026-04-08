@@ -77,6 +77,18 @@ patch:
   style/indicator_ascii_color: 0x00A5FF     # 英文模式顏色（默認橙色）
 ```
 
+### 定位模式 / Position Mode
+
+指示器默認跟隨光標移動。設置 `indicator_follow_cursor: false` 可固定在輸入起始位置：
+
+By default the indicator follows the cursor. Set `indicator_follow_cursor: false` to pin it at the input start position:
+
+```yaml
+patch:
+  style/show_input_indicator: true
+  style/indicator_follow_cursor: false
+```
+
 安裝輸入方案
 ---
 

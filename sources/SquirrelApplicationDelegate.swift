@@ -178,6 +178,7 @@ final class SquirrelApplicationDelegate: NSObject, NSApplicationDelegate, SPUSta
         ?? NSColor(srgbRed: 0.4, green: 0.7, blue: 1.0, alpha: 1.0)
       indicator?.asciiColor = config?.getColor("style/indicator_ascii_color", inSpace: colorSpace)
         ?? NSColor(srgbRed: 1.0, green: 0.647, blue: 0, alpha: 1.0)
+      indicator?.followCursor = config?.getBool("style/indicator_follow_cursor") ?? true
     }
   }
 
