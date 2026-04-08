@@ -48,6 +48,35 @@
   * 選中「在線文檔」可打開以上網址
   * 編輯用戶設定後，選擇「重新部署」以令修改生效
 
+光標輸入狀態指示器 / Cursor Input Indicator
+---
+
+在光標下方顯示當前輸入模式（中/英），方便隨時確認輸入狀態。
+
+Enable a small indicator below the cursor showing the current input mode ("中" for Chinese, "A" for ASCII).
+
+### 啓用 / Enable
+
+編輯 `~/Library/Rime/squirrel.custom.yaml`：
+
+```yaml
+patch:
+  style/show_input_indicator: true
+```
+
+修改後選擇「重新部署」生效。
+
+### 自定義顏色 / Custom Colors
+
+顏色格式爲 BGR（與鼠鬚管其他顏色配置一致）：
+
+```yaml
+patch:
+  style/show_input_indicator: true
+  style/indicator_chinese_color: 0xFF7040   # 中文模式顏色（默認淡藍色 0xFFA066）
+  style/indicator_ascii_color: 0x00A5FF     # 英文模式顏色（默認橙色）
+```
+
 安裝輸入方案
 ---
 
