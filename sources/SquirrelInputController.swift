@@ -470,22 +470,26 @@ private extension SquirrelInputController {
     }
 
     // Update Indicator
-    // 注意：位置更新延迟到获取 ctx 之后，根据是否有活跃 preedit 决定是否更新位置
+    // 始终获取光标位置和模式，但全选等操作导致位置跳变时保持原位
 
     var ctx = RimeContext_stdbool.rimeStructInit()
     if rimeAPI.get_context(session, &ctx) {
       // update preedit text
       let preedit = ctx.composition.preedit.map({ String(cString: $0) }) ?? ""
 
-      // 更新 Indicator：有 preedit 时更新位置（用户在此处输入），无 preedit 时只更新模式保持原位
       if let indicator = NSApp.squirrelAppDelegate.indicator, indicator.enabled {
         let isAscii = rimeAPI.get_option(session, "ascii_mode")
-        if !preedit.isEmpty {
-          var inputPos = NSRect()
-          client?.attributes(forCharacterIndex: 0, lineHeightRectangle: &inputPos)
-          indicator.update(asciiMode: isAscii, cursorRect: inputPos)
+        var inputPos = NSRect()
+        client?.attributes(forCharacterIndex: 0, lineHeightRectangle: &inputPos)
+
+        // 没有 preedit 且位置跳变超过 100px 时（如 Ctrl+A 全选），保持原位只更新模式
+        let lastPos = indicator.cursorRect
+        let jumped = lastPos != .zero && inputPos != .zero
+          && (abs(inputPos.origin.x - lastPos.origin.x) > 100 || abs(inputPos.origin.y - lastPos.origin.y) > 100)
+        if preedit.isEmpty && jumped {
+          indicator.update(asciiMode: isAscii, cursorRect: lastPos)
         } else {
-          indicator.update(asciiMode: isAscii, cursorRect: indicator.cursorRect)
+          indicator.update(asciiMode: isAscii, cursorRect: inputPos)
         }
       }
 

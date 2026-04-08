@@ -15,12 +15,10 @@ private class IndicatorContentView: NSView {
   var font: NSFont = NSFont.systemFont(ofSize: 11, weight: .semibold)
 
   override func draw(_ dirtyRect: NSRect) {
-    // 绘制圆角背景
     let path = NSBezierPath(roundedRect: bounds, xRadius: 4, yRadius: 4)
     bgColor.setFill()
     path.fill()
 
-    // 绘制居中文字
     let attrs: [NSAttributedString.Key: Any] = [
       .font: font,
       .foregroundColor: textColor,
@@ -33,36 +31,26 @@ private class IndicatorContentView: NSView {
 }
 
 final class SquirrelIndicator: NSPanel {
-  /// 当前是否为 ASCII 模式
   private(set) var asciiMode: Bool = false
-
-  /// 是否启用 Indicator
   var enabled: Bool = false
-
-  /// 中文模式颜色（默认淡蓝色）
   var chineseColor: NSColor = NSColor(srgbRed: 0.4, green: 0.7, blue: 1.0, alpha: 1.0)
-
-  /// 英文模式颜色（默认橙色）
   var asciiColor: NSColor = NSColor(srgbRed: 1.0, green: 0.647, blue: 0, alpha: 1.0)
-
-  /// 光标位置
   var cursorRect: NSRect = .zero
 
-  /// Indicator 窗口固定尺寸
   static let indicatorSize = NSSize(width: 20, height: 20)
-
-  /// 水平偏移量
   static let offsetX: CGFloat = 0
-  /// 光标下方偏移量
   static let offsetY: CGFloat = 2
 
-  /// 正常显示时的透明度
   private static let normalAlpha: CGFloat = 0.9
-  /// 动画时长
   private static let animationDuration: TimeInterval = 0.2
+  /// 鼠标靠近时的检测半径
+  private static let mouseProximityRadius: CGFloat = 30
 
-  /// 自定义绘制视图
   private let contentDrawView: IndicatorContentView
+  /// 鼠标接近检测定时器
+  private var mouseTracker: Timer?
+  /// 当前是否因鼠标靠近而隐藏
+  private var isMouseHidden: Bool = false
 
   init() {
     let contentRect = NSRect(origin: .zero, size: SquirrelIndicator.indicatorSize)
@@ -77,14 +65,54 @@ final class SquirrelIndicator: NSPanel {
 
     self.contentView?.addSubview(contentDrawView)
     refreshLabel()
+    startMouseTracking()
   }
 
-  /// 根据 asciiMode 选择对应的显示颜色（纯函数，可独立测试）
+  /// 停止鼠标追踪
+  func stopMouseTracking() {
+    mouseTracker?.invalidate()
+    mouseTracker = nil
+  }
+
+  /// 启动鼠标接近检测
+  private func startMouseTracking() {
+    mouseTracker = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+      self?.checkMouseProximity()
+    }
+  }
+
+  /// 检测鼠标是否靠近 indicator
+  private func checkMouseProximity() {
+    guard isVisible, enabled else { return }
+    let mouseLocation = NSEvent.mouseLocation
+    let indicatorCenter = NSPoint(x: frame.midX, y: frame.midY)
+    let dx = mouseLocation.x - indicatorCenter.x
+    let dy = mouseLocation.y - indicatorCenter.y
+    let distance = sqrt(dx * dx + dy * dy)
+
+    if distance < SquirrelIndicator.mouseProximityRadius {
+      if !isMouseHidden {
+        isMouseHidden = true
+        NSAnimationContext.runAnimationGroup { context in
+          context.duration = SquirrelIndicator.animationDuration
+          self.animator().alphaValue = 0.1
+        }
+      }
+    } else {
+      if isMouseHidden {
+        isMouseHidden = false
+        NSAnimationContext.runAnimationGroup { context in
+          context.duration = SquirrelIndicator.animationDuration
+          self.animator().alphaValue = SquirrelIndicator.normalAlpha
+        }
+      }
+    }
+  }
+
   nonisolated static func colorForMode(asciiMode: Bool, chineseColor: NSColor, asciiColor: NSColor) -> NSColor {
     asciiMode ? asciiColor : chineseColor
   }
 
-  /// 根据当前 asciiMode 刷新绘制内容
   private func refreshLabel() {
     let modeColor = SquirrelIndicator.colorForMode(asciiMode: asciiMode, chineseColor: chineseColor, asciiColor: asciiColor)
     contentDrawView.text = asciiMode ? "A" : "中"
@@ -96,8 +124,6 @@ final class SquirrelIndicator: NSPanel {
     contentDrawView.needsDisplay = true
   }
 
-  /// 计算 Indicator 窗口位置（纯函数，可独立测试）
-  /// 放在光标正下方，水平居中对齐
   static func calculatePosition(cursorRect: NSRect, indicatorSize: NSSize, screenRect: NSRect) -> NSPoint {
     var x = cursorRect.midX - indicatorSize.width / 2 + offsetX
     var y = cursorRect.minY - indicatorSize.height - offsetY
@@ -118,7 +144,6 @@ final class SquirrelIndicator: NSPanel {
     return NSPoint(x: x, y: y)
   }
 
-  /// 获取包含光标位置的屏幕 frame
   private func currentScreenRect() -> NSRect {
     var rect = NSScreen.main?.visibleFrame ?? .zero
     for screen in NSScreen.screens where screen.frame.contains(cursorRect.origin) {
@@ -128,7 +153,6 @@ final class SquirrelIndicator: NSPanel {
     return rect
   }
 
-  /// 更新输入模式并刷新显示
   func update(asciiMode: Bool, cursorRect: NSRect) {
     if cursorRect == .zero {
       hide()
@@ -148,8 +172,8 @@ final class SquirrelIndicator: NSPanel {
     let frame = NSRect(origin: origin, size: SquirrelIndicator.indicatorSize)
     setFrame(frame, display: true)
 
-    // 淡入显示
-    if self.alphaValue < SquirrelIndicator.normalAlpha {
+    // 淡入显示（如果之前被隐藏或淡出）
+    if !isMouseHidden && self.alphaValue < SquirrelIndicator.normalAlpha {
       self.alphaValue = 0
       orderFront(nil)
       NSAnimationContext.runAnimationGroup { context in
@@ -161,20 +185,19 @@ final class SquirrelIndicator: NSPanel {
     }
   }
 
-  /// 显示 Indicator（仅在 enabled 为 true 时）
   func show() {
     guard enabled else { return }
-    self.alphaValue = SquirrelIndicator.normalAlpha
+    if !isMouseHidden {
+      self.alphaValue = SquirrelIndicator.normalAlpha
+    }
     orderFront(nil)
   }
 
-  /// 隐藏 Indicator（立即）
   func hide() {
     self.alphaValue = 0
     orderOut(nil)
   }
 
-  /// 带动画淡出隐藏 Indicator
   func fadeOut() {
     NSAnimationContext.runAnimationGroup({ context in
       context.duration = SquirrelIndicator.animationDuration
