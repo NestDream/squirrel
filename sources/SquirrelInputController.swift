@@ -470,17 +470,24 @@ private extension SquirrelInputController {
     }
 
     // Update Indicator
-    if let indicator = NSApp.squirrelAppDelegate.indicator, indicator.enabled {
-      var inputPos = NSRect()
-      client?.attributes(forCharacterIndex: 0, lineHeightRectangle: &inputPos)
-      let isAscii = rimeAPI.get_option(session, "ascii_mode")
-      indicator.update(asciiMode: isAscii, cursorRect: inputPos)
-    }
+    // 注意：位置更新延迟到获取 ctx 之后，根据是否有活跃 preedit 决定是否更新位置
 
     var ctx = RimeContext_stdbool.rimeStructInit()
     if rimeAPI.get_context(session, &ctx) {
       // update preedit text
       let preedit = ctx.composition.preedit.map({ String(cString: $0) }) ?? ""
+
+      // 更新 Indicator：有 preedit 时更新位置（用户在此处输入），无 preedit 时只更新模式保持原位
+      if let indicator = NSApp.squirrelAppDelegate.indicator, indicator.enabled {
+        let isAscii = rimeAPI.get_option(session, "ascii_mode")
+        if !preedit.isEmpty {
+          var inputPos = NSRect()
+          client?.attributes(forCharacterIndex: 0, lineHeightRectangle: &inputPos)
+          indicator.update(asciiMode: isAscii, cursorRect: inputPos)
+        } else {
+          indicator.update(asciiMode: isAscii, cursorRect: indicator.cursorRect)
+        }
+      }
 
       let start = String.Index(preedit.utf8.index(preedit.utf8.startIndex, offsetBy: Int(ctx.composition.sel_start)), within: preedit) ?? preedit.startIndex
       let end = String.Index(preedit.utf8.index(preedit.utf8.startIndex, offsetBy: Int(ctx.composition.sel_end)), within: preedit) ?? preedit.startIndex
