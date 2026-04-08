@@ -7,6 +7,31 @@
 
 import AppKit
 
+/// 自定义绘制视图，精确控制文字垂直居中
+private class IndicatorContentView: NSView {
+  var text: String = "中"
+  var textColor: NSColor = .white
+  var bgColor: NSColor = NSColor(srgbRed: 0.4, green: 0.7, blue: 1.0, alpha: 0.85)
+  var font: NSFont = NSFont.systemFont(ofSize: 11, weight: .semibold)
+
+  override func draw(_ dirtyRect: NSRect) {
+    // 绘制圆角背景
+    let path = NSBezierPath(roundedRect: bounds, xRadius: 4, yRadius: 4)
+    bgColor.setFill()
+    path.fill()
+
+    // 绘制居中文字
+    let attrs: [NSAttributedString.Key: Any] = [
+      .font: font,
+      .foregroundColor: textColor,
+    ]
+    let size = (text as NSString).size(withAttributes: attrs)
+    let x = (bounds.width - size.width) / 2
+    let y = (bounds.height - size.height) / 2
+    (text as NSString).draw(at: NSPoint(x: x, y: y), withAttributes: attrs)
+  }
+}
+
 final class SquirrelIndicator: NSPanel {
   /// 当前是否为 ASCII 模式
   private(set) var asciiMode: Bool = false
@@ -32,21 +57,16 @@ final class SquirrelIndicator: NSPanel {
   static let offsetY: CGFloat = 2
 
   /// 正常显示时的透明度
-  private static let normalAlpha: CGFloat = 0.85
-  /// 候选面板显示时的降低透明度
-  private static let dimmedAlpha: CGFloat = 0.3
+  private static let normalAlpha: CGFloat = 0.9
   /// 动画时长
-  private static let animationDuration: TimeInterval = 0.15
+  private static let animationDuration: TimeInterval = 0.2
 
-  /// 圆角背景视图
-  private let backgroundView: NSView
-  /// 文字标签
-  private let label: NSTextField
+  /// 自定义绘制视图
+  private let contentDrawView: IndicatorContentView
 
   init() {
     let contentRect = NSRect(origin: .zero, size: SquirrelIndicator.indicatorSize)
-    backgroundView = NSView(frame: contentRect)
-    label = NSTextField(labelWithString: "")
+    contentDrawView = IndicatorContentView(frame: contentRect)
     super.init(contentRect: contentRect, styleMask: .nonactivatingPanel, backing: .buffered, defer: true)
     self.level = .init(Int(CGShieldingWindowLevel()))
     self.ignoresMouseEvents = true
@@ -55,30 +75,7 @@ final class SquirrelIndicator: NSPanel {
     self.backgroundColor = .clear
     self.alphaValue = SquirrelIndicator.normalAlpha
 
-    setupBackground()
-    setupLabel()
-  }
-
-  private func setupBackground() {
-    backgroundView.wantsLayer = true
-    backgroundView.layer?.cornerRadius = 4
-    backgroundView.layer?.masksToBounds = true
-    // 半透明深色背景，类似 macOS 系统气泡
-    backgroundView.layer?.backgroundColor = NSColor(white: 0.1, alpha: 0.75).cgColor
-    self.contentView?.addSubview(backgroundView)
-  }
-
-  private func setupLabel() {
-    label.isBezeled = false
-    label.drawsBackground = false
-    label.isEditable = false
-    label.isSelectable = false
-    label.alignment = .center
-    label.textColor = .white
-    label.frame = NSRect(origin: .zero, size: SquirrelIndicator.indicatorSize)
-    // 使用 autoresizing 让 label 填满 contentView
-    label.autoresizingMask = [.width, .height]
-    self.contentView?.addSubview(label)
+    self.contentView?.addSubview(contentDrawView)
     refreshLabel()
   }
 
@@ -87,28 +84,22 @@ final class SquirrelIndicator: NSPanel {
     asciiMode ? asciiColor : chineseColor
   }
 
-  /// 根据当前 asciiMode 刷新文字标签和颜色
+  /// 根据当前 asciiMode 刷新绘制内容
   private func refreshLabel() {
-    let text = asciiMode ? "A" : "中"
     let modeColor = SquirrelIndicator.colorForMode(asciiMode: asciiMode, chineseColor: chineseColor, asciiColor: asciiColor)
-
-    label.stringValue = text
-    label.textColor = .white
-    // "A" 用稍大字号让视觉大小与 "中" 匹配
-    label.font = asciiMode
+    contentDrawView.text = asciiMode ? "A" : "中"
+    contentDrawView.textColor = .white
+    contentDrawView.bgColor = modeColor.withAlphaComponent(0.85)
+    contentDrawView.font = asciiMode
       ? NSFont.systemFont(ofSize: 12, weight: .bold)
-      : NSFont.systemFont(ofSize: 11, weight: .semibold)
-
-    // 背景色使用模式颜色，带半透明
-    backgroundView.layer?.backgroundColor = modeColor.withAlphaComponent(0.85).cgColor
+      : NSFont.systemFont(ofSize: 12, weight: .semibold)
+    contentDrawView.needsDisplay = true
   }
 
   /// 计算 Indicator 窗口位置（纯函数，可独立测试）
   /// 放在光标正下方，水平居中对齐
   static func calculatePosition(cursorRect: NSRect, indicatorSize: NSSize, screenRect: NSRect) -> NSPoint {
-    // 水平居中于光标
     var x = cursorRect.midX - indicatorSize.width / 2 + offsetX
-    // 光标下方，带小间距
     var y = cursorRect.minY - indicatorSize.height - offsetY
 
     if x + indicatorSize.width > screenRect.maxX {
@@ -144,7 +135,6 @@ final class SquirrelIndicator: NSPanel {
       return
     }
 
-    let modeChanged = self.asciiMode != asciiMode
     self.asciiMode = asciiMode
     self.cursorRect = cursorRect
     refreshLabel()
@@ -158,39 +148,41 @@ final class SquirrelIndicator: NSPanel {
     let frame = NSRect(origin: origin, size: SquirrelIndicator.indicatorSize)
     setFrame(frame, display: true)
 
-    // 模式切换时用动画恢复到正常透明度
-    if modeChanged {
+    // 淡入显示
+    if self.alphaValue < SquirrelIndicator.normalAlpha {
+      self.alphaValue = 0
+      orderFront(nil)
       NSAnimationContext.runAnimationGroup { context in
         context.duration = SquirrelIndicator.animationDuration
         self.animator().alphaValue = SquirrelIndicator.normalAlpha
       }
-    } else if self.alphaValue < SquirrelIndicator.normalAlpha {
-      // 从 dimmed 状态恢复
-      NSAnimationContext.runAnimationGroup { context in
-        context.duration = SquirrelIndicator.animationDuration
-        self.animator().alphaValue = SquirrelIndicator.normalAlpha
-      }
+    } else {
+      show()
     }
-
-    show()
   }
 
   /// 显示 Indicator（仅在 enabled 为 true 时）
   func show() {
     guard enabled else { return }
+    self.alphaValue = SquirrelIndicator.normalAlpha
     orderFront(nil)
   }
 
-  /// 隐藏 Indicator
+  /// 隐藏 Indicator（立即）
   func hide() {
+    self.alphaValue = 0
     orderOut(nil)
   }
 
-  /// 降低透明度（候选面板显示时调用，而非完全隐藏）
-  func dim() {
-    NSAnimationContext.runAnimationGroup { context in
+  /// 带动画淡出隐藏 Indicator
+  func fadeOut() {
+    NSAnimationContext.runAnimationGroup({ context in
       context.duration = SquirrelIndicator.animationDuration
-      self.animator().alphaValue = SquirrelIndicator.dimmedAlpha
-    }
+      self.animator().alphaValue = 0
+    }, completionHandler: {
+      if self.alphaValue < 0.01 {
+        self.orderOut(nil)
+      }
+    })
   }
 }
