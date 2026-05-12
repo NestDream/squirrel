@@ -4,6 +4,8 @@ Squirrel.xcodeproj/project.xcworkspace/
 Squirrel.xcodeproj/xcuserdata/
 build/
 build.log
+build_*.log
+.build/
 Frameworks/*
 bin/*
 lib/*
