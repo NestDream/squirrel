@@ -2,8 +2,6 @@
 //  SquirrelIndicator.swift
 //  Squirrel
 //
-//  Created by Kiro on 2025/01/01.
-//
 
 import AppKit
 

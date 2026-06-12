@@ -22,7 +22,7 @@ Our fork's main divergence from upstream is the **cursor input indicator** featu
 | [Squirrel.xcodeproj/](Squirrel.xcodeproj/) | The real build target — produces `Squirrel.app`. |
 | [Package.swift](Package.swift) | Swift Package for unit-testing the indicator only. **Not** the app build. |
 | [data/squirrel.yaml](data/squirrel.yaml) | Default config shipped with the app. |
-| [docs/specs/](docs/specs/) | Design docs migrated from the original Kiro workflow (requirements / design / tasks). |
+| [docs/specs/](docs/specs/) | Design docs for the indicator feature (requirements / design / tasks). |
 | [librime/](librime/) | Submodule — Rime engine C++ source. |
 | [Sparkle/](Sparkle/) | Submodule — auto-update framework. |
 | [plum/](plum/) | Submodule — Rime config/schema package manager. |
