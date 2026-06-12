@@ -525,6 +525,8 @@ private extension SquirrelPanel {
     view.textView.frame = textFrame
 
     if theme.translucency {
+      // Re-attach the rounded-corner mask in case the layer tree was rebuilt.
+      refreshBackgroundIfNeeded()
       var backFrame = subviewFrame
       backFrame.size.width += theme.pagingOffset
       back.frame = backFrame
@@ -534,7 +536,9 @@ private extension SquirrelPanel {
       back.isHidden = true
     }
 
-    alphaValue = theme.alpha
+    // Drive translucency through the theme's back_color alpha, not window opacity:
+    // a window alphaValue < 1 flattens NSVisualEffectView's blur to a plain layer.
+    alphaValue = theme.translucency ? 1.0 : theme.alpha
     invalidateShadow()
     orderFront(nil)
     // voila!
@@ -562,17 +566,25 @@ private extension SquirrelPanel {
     return NSRange(location: startPos, length: endPos - startPos)
   }
 
+  // NSVisualEffectView re-evaluates its blur automatically across hide/show, so
+  // there is nothing to rebuild. Just re-attach the rounded-corner mask in case
+  // the layer tree was rebuilt across a hide/show cycle.
+  func refreshBackgroundIfNeeded() {
+    back.wantsLayer = true
+    back.layer?.mask = view.shape
+  }
+
   static func makeBackgroundView() -> NSView {
-    if #available(macOS 26.0, *) {
-      let glassView = NSGlassEffectView()
-      glassView.style = .clear
-      return glassView
-    } else {
-      let visualEffectView = NSVisualEffectView()
-      visualEffectView.blendingMode = .behindWindow
-      visualEffectView.material = .hudWindow
-      visualEffectView.state = .active
-      return visualEffectView
-    }
+    // Force the stable NSVisualEffectView path on every macOS version, including
+    // 26. NSGlassEffectView's backdrop freezes on this borderless, transparent,
+    // never-key floating panel (open macOS 26.2 regression with no app-side fix),
+    // which makes the candidate panel render then go transparent. state = .active
+    // keeps the blur live even though this panel is never the key window, and the
+    // view follows effectiveAppearance for light/dark on its own.
+    let visualEffectView = NSVisualEffectView()
+    visualEffectView.blendingMode = .behindWindow
+    visualEffectView.material = .hudWindow
+    visualEffectView.state = .active
+    return visualEffectView
   }
 }
