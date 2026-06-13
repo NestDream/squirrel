@@ -189,12 +189,16 @@ final class SquirrelApplicationDelegate: NSObject, NSApplicationDelegate, SPUSta
     let showIndicator = config?.getBool("style/show_input_indicator") ?? false
     indicator?.enabled = showIndicator
     if showIndicator {
-      let colorSpace: SquirrelTheme.RimeColorSpace = .from(name: config?.getString("style/color_space") ?? "")
-      indicator?.chineseColor = config?.getColor("style/indicator_chinese_color", inSpace: colorSpace)
+      // I7: 指示器顏色固定以 sRGB 解析（預設值即以 sRGB 建構）/ parse indicator colors as sRGB
+      indicator?.chineseColor = config?.getColor("style/indicator_chinese_color", inSpace: .sRGB)
         ?? NSColor(srgbRed: 0.4, green: 0.7, blue: 1.0, alpha: 1.0)
-      indicator?.asciiColor = config?.getColor("style/indicator_ascii_color", inSpace: colorSpace)
+      indicator?.asciiColor = config?.getColor("style/indicator_ascii_color", inSpace: .sRGB)
         ?? NSColor(srgbRed: 1.0, green: 0.647, blue: 0, alpha: 1.0)
       indicator?.followCursor = config?.getBool("style/indicator_follow_cursor") ?? true
+    } else {
+      // I4: 運行時關閉時主動隱藏並清掉殘留位置，避免被 notificationHandler 重新喚起
+      indicator?.hide()
+      indicator?.cursorRect = .zero
     }
   }
 

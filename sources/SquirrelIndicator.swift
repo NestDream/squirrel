@@ -53,6 +53,8 @@ final class SquirrelIndicator: NSPanel {
   private var mouseTracker: Timer?
   /// 当前是否因鼠标靠近而隐藏
   private var isMouseHidden: Bool = false
+  /// 候選面板淡出期間，停止鄰近邏輯與其爭用 alpha / suppress proximity logic during panel fade-out
+  private var isFadingForPanel: Bool = false
 
   init() {
     let contentRect = NSRect(origin: .zero, size: SquirrelIndicator.indicatorSize)
@@ -67,7 +69,10 @@ final class SquirrelIndicator: NSPanel {
 
     self.contentView?.addSubview(contentDrawView)
     refreshLabel()
-    startMouseTracking()
+  }
+
+  deinit {
+    stopMouseTracking()
   }
 
   /// 停止鼠标追踪
@@ -78,14 +83,20 @@ final class SquirrelIndicator: NSPanel {
 
   /// 启动鼠标接近检测
   private func startMouseTracking() {
-    mouseTracker = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+    // I1: 避免重複排程，且僅在啟用時才啟動計時器 / don't double-schedule; gate on enabled
+    guard enabled, mouseTracker == nil else { return }
+    let timer = Timer(timeInterval: 0.1, repeats: true) { [weak self] _ in
       self?.checkMouseProximity()
     }
+    // I1: 以 .common 模式保持在模態／追蹤迴圈中持續觸發 / keep firing during modal/tracking loops
+    RunLoop.main.add(timer, forMode: .common)
+    mouseTracker = timer
   }
 
   /// 检测鼠标是否靠近 indicator
   private func checkMouseProximity() {
-    guard isVisible, enabled else { return }
+    // I6: 面板淡出期間停止鄰近邏輯，避免與淡出爭用 alpha / bail during panel fade-out
+    guard isVisible, enabled, !isFadingForPanel else { return }
     let mouseLocation = NSEvent.mouseLocation
     let indicatorCenter = NSPoint(x: frame.midX, y: frame.midY)
     let dx = mouseLocation.x - indicatorCenter.x
@@ -147,7 +158,7 @@ final class SquirrelIndicator: NSPanel {
   }
 
   private func currentScreenRect() -> NSRect {
-    var rect = NSScreen.main?.visibleFrame ?? .zero
+    var rect = NSScreen.main?.visibleFrame ?? NSScreen.screens.first?.visibleFrame ?? .zero
     for screen in NSScreen.screens where screen.frame.contains(cursorRect.origin) {
       rect = screen.visibleFrame
       break
@@ -156,6 +167,16 @@ final class SquirrelIndicator: NSPanel {
   }
 
   func update(asciiMode: Bool, cursorRect: NSRect) {
+    // I3: 確保所有 AppKit 操作在主執行緒 / hop to main before any AppKit work
+    if !Thread.isMainThread {
+      DispatchQueue.main.async { self.update(asciiMode: asciiMode, cursorRect: cursorRect) }
+      return
+    }
+    // I4: 停用時一律隱藏，保護所有呼叫者（含淡入分支）/ disabled → always hide
+    guard enabled else {
+      hide()
+      return
+    }
     if cursorRect == .zero {
       hide()
       return
@@ -166,6 +187,12 @@ final class SquirrelIndicator: NSPanel {
     refreshLabel()
 
     let screenRect = currentScreenRect()
+    // I8: 螢幕無法容納指示器時抑制顯示，而非定位到 (0,0) / suppress on degenerate screen
+    guard screenRect.width >= SquirrelIndicator.indicatorSize.width,
+          screenRect.height >= SquirrelIndicator.indicatorSize.height else {
+      hide()
+      return
+    }
     let origin = SquirrelIndicator.calculatePosition(
       cursorRect: cursorRect,
       indicatorSize: SquirrelIndicator.indicatorSize,
@@ -178,6 +205,7 @@ final class SquirrelIndicator: NSPanel {
     if !isMouseHidden && self.alphaValue < SquirrelIndicator.normalAlpha {
       self.alphaValue = 0
       orderFront(nil)
+      startMouseTracking()   // I1/I6: 顯示時重新啟動鄰近追蹤 / re-arm proximity tracking on show
       NSAnimationContext.runAnimationGroup { context in
         context.duration = SquirrelIndicator.animationDuration
         self.animator().alphaValue = SquirrelIndicator.normalAlpha
@@ -193,21 +221,30 @@ final class SquirrelIndicator: NSPanel {
       self.alphaValue = SquirrelIndicator.normalAlpha
     }
     orderFront(nil)
+    startMouseTracking()   // I1: 僅在顯示時才延遲啟動 10Hz 鄰近計時器 / lazily start the 10Hz proximity timer only while shown
   }
 
   func hide() {
+    stopMouseTracking()        // I1: 未顯示時停止計時器 / stop the timer when not shown
+    isMouseHidden = false      // I6: 重置狀態，下次顯示乾淨開始 / reset so a fresh show starts clean
+    isFadingForPanel = false   // I6: 清除面板淡出旗標 / clear panel-fade flag
     self.alphaValue = 0
     orderOut(nil)
   }
 
   func fadeOut() {
+    // I1/I6: 停止鄰近追蹤避免還原動畫與此淡出爭用，並重置狀態使完成時必定 orderOut
+    // stop proximity tracking so a restore animation can't fight this fade, and reset
+    // proximity state so completion always orders out.
+    stopMouseTracking()
+    isMouseHidden = false
+    isFadingForPanel = true
     NSAnimationContext.runAnimationGroup({ context in
       context.duration = SquirrelIndicator.animationDuration
       self.animator().alphaValue = 0
     }, completionHandler: {
-      if self.alphaValue < 0.01 {
-        self.orderOut(nil)
-      }
+      self.isFadingForPanel = false
+      self.orderOut(nil)   // I6: 無條件 orderOut，不再被鄰近邏輯可能改動的 alpha 阻擋 / unconditional
     })
   }
 }

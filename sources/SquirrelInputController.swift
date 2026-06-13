@@ -28,6 +28,10 @@ final class SquirrelInputController: IMKInputController {
   private var chordTimer: Timer?
   private var chordDuration: TimeInterval = 0
   private var currentApp: String = ""
+  // I2: 保存通知觀察者 token 以便 deinit 時移除，避免 NotificationCenter 觀察者洩漏
+  // I2: keep observer tokens so deinit can remove them, preventing observer leaks
+  private var asciiModeObserver: NSObjectProtocol?
+  private var reportModeObserver: NSObjectProtocol?
 
   // swiftlint:disable:next cyclomatic_complexity
   override func handle(_ event: NSEvent!, client sender: Any!) -> Bool {
@@ -201,8 +205,10 @@ final class SquirrelInputController: IMKInputController {
       let isAscii = rimeAPI.get_option(session, "ascii_mode")
       var inputPos = NSRect()
       client?.attributes(forCharacterIndex: 0, lineHeightRectangle: &inputPos)
-      // 记录初始位置用于固定模式
-      indicator.fixedRect = inputPos
+      // I5: 只在拿到非零位置時才記錄固定模式的起點 / only seed fixedRect from a non-zero rect
+      if inputPos != .zero {
+        indicator.fixedRect = inputPos
+      }
       indicator.update(asciiMode: isAscii, cursorRect: inputPos)
     }
 
@@ -221,7 +227,7 @@ final class SquirrelInputController: IMKInputController {
     createSession()
 
     // Listen for ASCII mode toggle notifications
-    NotificationCenter.default.addObserver(
+    asciiModeObserver = NotificationCenter.default.addObserver(
       forName: .init("SquirrelSetASCIIModeNotification"),
       object: nil,
       queue: nil
@@ -230,7 +236,7 @@ final class SquirrelInputController: IMKInputController {
     }
 
     // Listen for ASCII mode status requests
-    NotificationCenter.default.addObserver(
+    reportModeObserver = NotificationCenter.default.addObserver(
       forName: .init("SquirrelReportASCIIModeNotification"),
       object: nil,
       queue: nil
@@ -326,6 +332,14 @@ final class SquirrelInputController: IMKInputController {
   }
 
   deinit {
+    // I2: 移除已註冊的通知觀察者，避免在每個 session 控制器銷毀後仍殘留
+    // I2: remove registered notification observers so they don't outlive the controller
+    if let token = asciiModeObserver {
+      NotificationCenter.default.removeObserver(token)
+    }
+    if let token = reportModeObserver {
+      NotificationCenter.default.removeObserver(token)
+    }
     destroySession()
   }
 }
@@ -515,18 +529,29 @@ private extension SquirrelInputController {
         client?.attributes(forCharacterIndex: 0, lineHeightRectangle: &inputPos)
 
         if indicator.followCursor {
-          // 跟随光标模式：没有 preedit 且位置跳变超过 100px 时保持原位
+          // 跟隨光標模式：無 preedit 且發生大跳變時保持原位（規避全選等）
           let lastPos = indicator.cursorRect
-          let jumped = lastPos != .zero && inputPos != .zero
-            && (abs(inputPos.origin.x - lastPos.origin.x) > 100 || abs(inputPos.origin.y - lastPos.origin.y) > 100)
+          // I9: 閾值隨行高縮放、比較中心點、加同屏判斷
+          let lineHeight = max(inputPos.height, lastPos.height, 16)
+          let threshold = lineHeight * 3
+          let sameScreen = NSScreen.screens.contains {
+            $0.frame.contains(inputPos.origin) && $0.frame.contains(lastPos.origin)
+          }
+          let jumped = lastPos != .zero && inputPos != .zero && sameScreen
+            && (abs(inputPos.midX - lastPos.midX) > threshold || abs(inputPos.midY - lastPos.midY) > threshold)
           if preedit.isEmpty && jumped {
             indicator.update(asciiMode: isAscii, cursorRect: lastPos)
           } else {
             indicator.update(asciiMode: isAscii, cursorRect: inputPos)
           }
         } else {
-          // 固定模式：始终使用 activateServer 时记录的初始位置
-          indicator.update(asciiMode: isAscii, cursorRect: indicator.fixedRect)
+          // 固定模式：用 activateServer 記錄的起點；若起點為零則回退到實時位置並補種
+          // I5
+          if indicator.fixedRect == .zero, inputPos != .zero {
+            indicator.fixedRect = inputPos
+          }
+          let target = indicator.fixedRect == .zero ? inputPos : indicator.fixedRect
+          indicator.update(asciiMode: isAscii, cursorRect: target)
         }
       }
 
