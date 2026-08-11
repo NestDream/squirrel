@@ -11,16 +11,16 @@ Squirrel (鼠鬚管) is a macOS IME app bundle. It loads librime via a C bridgin
 - `origin` → `https://github.com/NestDream/squirrel.git` (this fork — push our changes here)
 - `upstream` → `https://github.com/rime/squirrel.git` (rime/squirrel — pull updates from here)
 
-Our fork's main divergence from upstream is the **cursor input indicator** feature (see [docs/specs/cursor-input-indicator/](docs/specs/cursor-input-indicator/)).
+Our fork diverges from upstream in two places: the **cursor input indicator** feature (see [docs/specs/cursor-input-indicator/](docs/specs/cursor-input-indicator/)), and the **Shift-switch behavior** menu picker ([sources/ShiftSwitchBehavior.swift](sources/ShiftSwitchBehavior.swift)).
 
 ## Repo layout
 
 | Path | What's there |
 |---|---|
 | [sources/](sources/) | All Swift source. App entry point is [Main.swift](sources/Main.swift). |
-| [Tests/](Tests/) | Swift Package tests for the indicator feature (run via `swift test`). |
+| [Tests/](Tests/) | Swift Package tests for the fork's own features (run via `swift test`). |
 | [Squirrel.xcodeproj/](Squirrel.xcodeproj/) | The real build target — produces `Squirrel.app`. |
-| [Package.swift](Package.swift) | Swift Package for unit-testing the indicator only. **Not** the app build. |
+| [Package.swift](Package.swift) | Swift Package for unit-testing the fork's additions only. **Not** the app build. |
 | [data/squirrel.yaml](data/squirrel.yaml) | Default config shipped with the app. |
 | [docs/specs/](docs/specs/) | Design docs for the indicator feature (requirements / design / tasks). |
 | [librime/](librime/) | Submodule — Rime engine C++ source. |
@@ -42,6 +42,7 @@ Our fork's main divergence from upstream is the **cursor input indicator** featu
 | [sources/SquirrelTheme.swift](sources/SquirrelTheme.swift) | Theme/color/font model loaded from `squirrel.yaml`. |
 | [sources/SquirrelConfig.swift](sources/SquirrelConfig.swift) | Thin wrapper over Rime's config API; `getBool` / `getString` / `getColor`. |
 | [sources/SquirrelIndicator.swift](sources/SquirrelIndicator.swift) | Fork-only: small floating panel near cursor showing current `ascii_mode` ("中"/"A"). |
+| [sources/ShiftSwitchBehavior.swift](sources/ShiftSwitchBehavior.swift) | Fork-only: reads/writes `ascii_composer/switch_key/Shift_L` in `~/Library/Rime/default.custom.yaml` for the menu picker. Pure text editing, no YAML round-trip. |
 | [sources/InputSource.swift](sources/InputSource.swift) | Registers/enables/selects the input source via `TIS*` APIs. |
 | [sources/MacOSKeyCodes.swift](sources/MacOSKeyCodes.swift) | Translates AppKit key events to Rime key codes. |
 | [sources/BridgingFunctions.swift](sources/BridgingFunctions.swift) | Helpers to call the C Rime API from Swift. |
@@ -70,13 +71,15 @@ Required env: `BOOST_ROOT` must point at a Boost source tree before `make deps`.
 
 ## Testing
 
-The `Package.swift` is **only for unit-testing the indicator feature** — it isn't the app build. It compiles a minimal `SquirrelCore` target containing only [sources/SquirrelIndicator.swift](sources/SquirrelIndicator.swift) so the property/integration tests in [Tests/](Tests/) can exercise it without pulling in librime.
+The `Package.swift` is **only for unit-testing the fork's own additions** — it isn't the app build. It compiles a minimal `SquirrelCore` target containing just [sources/SquirrelIndicator.swift](sources/SquirrelIndicator.swift) and [sources/ShiftSwitchBehavior.swift](sources/ShiftSwitchBehavior.swift) so the tests in [Tests/](Tests/) can exercise them without pulling in librime.
 
 ```sh
 swift test
 ```
 
-If you change `SquirrelIndicator.swift` you should run `swift test`. If you change anything else, test via Xcode (`xcodebuild -scheme Squirrel test`) or by building + installing and exercising the IME live — there's no other automated test harness.
+If you change either of those two files you should run `swift test`. If you change anything else, test via Xcode (`xcodebuild -scheme Squirrel build`) or by building + installing and exercising the IME live — there's no other automated test harness.
+
+Adding a new source file means registering it in **both** [Package.swift](Package.swift) (`sources:` list, if it should be tested) and [Squirrel.xcodeproj/project.pbxproj](Squirrel.xcodeproj/project.pbxproj) (build file, file reference, group, sources phase) — otherwise it won't compile into the app.
 
 ## Style & lint
 
@@ -88,7 +91,7 @@ If you change `SquirrelIndicator.swift` you should run `swift test`. If you chan
 
 - **Commit messages**: Conventional Commits style (`feat:`, `fix:`, `docs:`, `chore:`, `style:`, `ci:`, `feat(ui):`). Recent history shows both English and Chinese; either is fine, match the change's audience. Tag major releases via `chore(release): X.Y.Z :tada:`.
 - **CHANGELOG.md**: bilingual sections — `主要功能更新 | Major Updates`, `Bug 修復 | Bug Fixes`, `構建 | Build`, `雜項 | Miscellaneous`. Add a note for any user-visible change.
-- **Pulling from upstream**: this fork's only structural divergence from `rime/squirrel` is the indicator feature — most upstream changes won't conflict. When merging, prefer `git merge upstream/master` (preserves upstream history) over rebase.
+- **Pulling from upstream**: this fork's structural divergence from `rime/squirrel` is limited to the indicator feature and the Shift-switch menu picker — most upstream changes won't conflict. When merging, prefer `git merge upstream/master` (preserves upstream history) over rebase.
 - **Submodules**: `librime`, `Sparkle`, `plum`. Use `git submodule update --init --recursive` after fresh clones.
 
 ## Indicator feature — quick map

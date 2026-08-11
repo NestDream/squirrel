@@ -8,7 +8,7 @@ let package = Package(
     .target(
       name: "SquirrelCore",
       path: "sources",
-      sources: ["SquirrelIndicator.swift"]
+      sources: ["SquirrelIndicator.swift", "ShiftSwitchBehavior.swift"]
     ),
     .testTarget(
       name: "SquirrelTests",

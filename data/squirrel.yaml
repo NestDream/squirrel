@@ -24,6 +24,28 @@ show_notifications_when: appropriate
 status_icon:
   show: true
 
+# Shift 切中英时，未上屏的编码怎么处理?
+# 用输入法菜单「Shift 切换到英文时」直接选，Squirrel 会写入
+# ~/Library/Rime/default.custom.yaml 并自动重新部署（原文件会备份为 .bak）。
+#
+# How is an unfinished composition treated when Shift switches to English?
+# Pick it from the "When Shift switches to English" menu; Squirrel writes
+# ~/Library/Rime/default.custom.yaml and redeploys (backing the file up as .bak).
+#
+# 这个键属于 librime 而不是 squirrel.yaml，所以写在 default.custom.yaml：
+# This key belongs to librime, not squirrel.yaml, hence default.custom.yaml:
+#
+#   patch:
+#     ascii_composer/switch_key/Shift_L: commit_code
+#
+# commit_code   上屏原始编码，保留已输入的字母（不会被转成第一个中文候选）
+#               commit the raw input as typed
+# commit_text   先把当前候选上屏，再切英文 / commit the current candidate first
+# inline_ascii  临时英文，这段上屏后自动回中文（单向，不能当双向开关）
+#               temporary ASCII mode, returns to Chinese once committed
+# clear         丢弃未上屏内容 / discard the composition
+# noop          屏蔽 Shift，不切中英 / disable the Shift switch
+
 style:
   color_scheme: native
   # Optional: define both light and dark color schemes to match system appearance

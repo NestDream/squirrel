@@ -8,6 +8,11 @@
 ### 新功能 | New Features
 - 新增光標旁輸入狀態指示器，以 `style/show_input_indicator: true/false` 控制
 - Add cursor input indicator to show current input mode near cursor
+- 輸入法菜單新增「Shift 切換到英文時」子菜單，可直接選擇未上屏編碼的處理方式
+  （原樣上屏字母／上屏候選詞／臨時英文／清除／不切換），選後自動寫入
+  `default.custom.yaml` 並重新部署
+- Add a "When Shift switches to English" submenu to pick how an unfinished
+  composition is treated; the choice is written to `default.custom.yaml` and deployed
 
 ### 雜項 | Miscellaneous
 - update Icon that can adapt with system color scheme (714325e)

@@ -191,6 +191,166 @@
         }
       }
     },
+    "shift_switch_behavior" : {
+      "comment" : "Menu item",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When Shift switches to English"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shift 切换到英文时"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shift 切換到英文時"
+          }
+        }
+      }
+    },
+    "shift_switch_clear" : {
+      "comment" : "Shift switch behavior",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discard the composition"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "清除未上屏内容"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "清除未上屏內容"
+          }
+        }
+      }
+    },
+    "shift_switch_commit_code" : {
+      "comment" : "Shift switch behavior",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Commit raw input as typed"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上屏原始编码（保留已输入的字母）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上屏原始編碼（保留已輸入的字母）"
+          }
+        }
+      }
+    },
+    "shift_switch_commit_text" : {
+      "comment" : "Shift switch behavior",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Commit the current candidate"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上屏当前候选词"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上屏當前候選詞"
+          }
+        }
+      }
+    },
+    "shift_switch_inline_ascii" : {
+      "comment" : "Shift switch behavior",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Temporary English until committed"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "临时英文，上屏后自动回中文"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "臨時英文，上屏後自動回中文"
+          }
+        }
+      }
+    },
+    "shift_switch_noop" : {
+      "comment" : "Shift switch behavior",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Do not switch on Shift"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不用 Shift 切换中英"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不用 Shift 切換中英"
+          }
+        }
+      }
+    },
+    "shift_switch_save_failure" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not save the setting to default.custom.yaml."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法写入 default.custom.yaml。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法寫入 default.custom.yaml。"
+          }
+        }
+      }
+    },
     "Squirrel" : {
       "comment" : "Menu title",
       "localizations" : {

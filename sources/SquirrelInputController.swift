@@ -299,12 +299,30 @@ final class SquirrelInputController: IMKInputController {
     let menu = NSMenu()
     menu.addItem(deploy)
     menu.addItem(sync)
+    menu.addItem(shiftSwitchMenuItem())
     menu.addItem(logDir)
     menu.addItem(setting)
     menu.addItem(wiki)
     menu.addItem(update)
 
     return menu
+  }
+
+  /// 「Shift 切中英時」子菜單：radio 勾選當前生效的取值。
+  /// "When Shift switches to English" submenu, radio-marking the active value.
+  private func shiftSwitchMenuItem() -> NSMenuItem {
+    let current = NSApp.squirrelAppDelegate.shiftSwitchBehavior
+    let submenu = NSMenu()
+    for behavior in ShiftSwitchBehavior.allCases {
+      let item = NSMenuItem(title: behavior.localizedTitle, action: #selector(selectShiftSwitchBehavior(_:)), keyEquivalent: "")
+      item.target = self
+      item.representedObject = behavior.rawValue
+      item.state = behavior == current ? .on : .off
+      submenu.addItem(item)
+    }
+    let parent = NSMenuItem(title: NSLocalizedString("shift_switch_behavior", comment: "Menu item"), action: nil, keyEquivalent: "")
+    parent.submenu = submenu
+    return parent
   }
 
   @objc func deploy() {
@@ -329,6 +347,12 @@ final class SquirrelInputController: IMKInputController {
 
   @objc func openWiki() {
     NSApp.squirrelAppDelegate.openWiki()
+  }
+
+  @objc func selectShiftSwitchBehavior(_ sender: NSMenuItem) {
+    guard let raw = sender.representedObject as? String,
+          let behavior = ShiftSwitchBehavior(rawValue: raw) else { return }
+    NSApp.squirrelAppDelegate.setShiftSwitchBehavior(behavior)
   }
 
   deinit {

@@ -114,6 +114,30 @@ final class SquirrelApplicationDelegate: NSObject, NSApplicationDelegate, SPUSta
     NSWorkspace.shared.open(Self.rimeWikiURL)
   }
 
+  /// Shift 切中英時未上屏內容的處理方式，存在 default.custom.yaml 而非 squirrel.yaml：
+  /// 這個鍵由 librime 的 AsciiComposer 讀取，它只看 default.yaml 和方案文件。
+  /// Lives in default.custom.yaml, not squirrel.yaml: librime's AsciiComposer owns this key.
+  var shiftSwitchConfigFile: ShiftSwitchConfigFile {
+    ShiftSwitchConfigFile(url: SquirrelApp.userDir.appendingPathComponent("default.custom.yaml"))
+  }
+
+  var shiftSwitchBehavior: ShiftSwitchBehavior {
+    shiftSwitchConfigFile.read() ?? .fallback
+  }
+
+  /// 寫入後必須重新部署，librime 只在部署時重編譯 default.yaml。
+  /// A redeploy is required: librime only recompiles default.yaml on deployment.
+  func setShiftSwitchBehavior(_ behavior: ShiftSwitchBehavior) {
+    do {
+      try shiftSwitchConfigFile.write(behavior)
+    } catch {
+      print("Failed to save Shift switch behavior: \(error.localizedDescription)")
+      Self.showMessage(msgText: NSLocalizedString("shift_switch_save_failure", comment: ""))
+      return
+    }
+    deploy()
+  }
+
   static func showMessage(msgText: String?) {
     let center = UNUserNotificationCenter.current()
     center.requestAuthorization(options: [.alert, .provisional]) { _, error in
