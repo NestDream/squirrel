@@ -166,6 +166,8 @@ final class SquirrelApplicationDelegate: NSObject, NSApplicationDelegate, SPUSta
   func setupRime() {
     createDirIfNotExist(path: SquirrelApp.userDir)
     createDirIfNotExist(path: SquirrelApp.logDir)
+    // Expose the log directory to librime plugins.
+    setenv("RIME_LOG_DIR", SquirrelApp.logDir.path(), 1)
     // swiftlint:disable identifier_name
     let notification_handler: @convention(c) (UnsafeMutableRawPointer?, RimeSessionId, UnsafePointer<CChar>?, UnsafePointer<CChar>?) -> Void = notificationHandler
     let context_object = Unmanaged.passUnretained(self).toOpaque()
@@ -186,13 +188,8 @@ final class SquirrelApplicationDelegate: NSObject, NSApplicationDelegate, SPUSta
   func startRime(fullCheck: Bool) {
     print("Initializing la rime...")
     rimeAPI.initialize(nil)
-    // check for configuration updates
     if rimeAPI.start_maintenance(fullCheck) {
-      // update squirrel config
-      // print("[DEBUG] maintenance suceeds")
       _ = rimeAPI.deploy_config_file("squirrel.yaml", "config_version")
-    } else {
-      // print("[DEBUG] maintenance fails")
     }
   }
 
@@ -243,11 +240,10 @@ final class SquirrelApplicationDelegate: NSObject, NSApplicationDelegate, SPUSta
     schema.close()
   }
 
-  // prevent freezing the system
+  // Detect repeated launches that may indicate a bad configuration loop.
   func problematicLaunchDetected() -> Bool {
     var detected = false
     let logFile = FileManager.default.temporaryDirectory.appendingPathComponent("squirrel_launch.json", conformingTo: .json)
-    // print("[DEBUG] archive: \(logFile)")
     do {
       let archive = try Data(contentsOf: logFile, options: [.uncached])
       let decoder = JSONDecoder()
@@ -273,9 +269,6 @@ final class SquirrelApplicationDelegate: NSObject, NSApplicationDelegate, SPUSta
     return detected
   }
 
-  // add an awakeFromNib item so that we can set the action method.  Note that
-  // any menuItems without an action will be disabled when displayed in the Text
-  // Input Menu.
   func addObservers() {
     let center = NSWorkspace.shared.notificationCenter
     center.addObserver(forName: NSWorkspace.willPowerOffNotification, object: nil, queue: nil, using: workspaceWillPowerOff)
@@ -285,10 +278,13 @@ final class SquirrelApplicationDelegate: NSObject, NSApplicationDelegate, SPUSta
     notifCenter.addObserver(forName: .init("SquirrelSyncNotification"), object: nil, queue: nil, using: rimeNeedsSync)
     notifCenter.addObserver(forName: .init("SquirrelToggleASCIIModeNotification"), object: nil, queue: nil, using: rimeToggleASCIIMode)
     notifCenter.addObserver(forName: .init("SquirrelGetASCIIModeNotification"), object: nil, queue: nil, using: rimeGetASCIIMode)
-    notifCenter.addObserver(forName: .init(kTISNotifySelectedKeyboardInputSourceChanged as String), object: nil, queue: .main) { [weak self] _ in
-      self?.updateStatusItemVisibility()
-      self?.finalizeStrandedComposition()
-    }
+    // Suspension behavior matters: the default coalescing holds notifications
+    // back while the process is inactive, which is exactly the state Squirrel
+    // enters when the user switches away — the icon would fail to hide until
+    // the next activation. Deliver immediately instead.
+    notifCenter.addObserver(self, selector: #selector(inputSourceChanged(_:)),
+                            name: .init(kTISNotifySelectedKeyboardInputSourceChanged as String),
+                            object: nil, suspensionBehavior: .deliverImmediately)
   }
 
   func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -311,11 +307,13 @@ extension RimeStringSlice {
   }
 }
 
+// swiftlint:disable:next cyclomatic_complexity
 private func notificationHandler(contextObject: UnsafeMutableRawPointer?, sessionId: RimeSessionId, messageTypeC: UnsafePointer<CChar>?, messageValueC: UnsafePointer<CChar>?) {
   let delegate: SquirrelApplicationDelegate = Unmanaged<SquirrelApplicationDelegate>.fromOpaque(contextObject!).takeUnretainedValue()
 
   let messageType = messageTypeC.map { String(cString: $0) }
   let messageValue = messageValueC.map { String(cString: $0) }
+
   if messageType == "deploy" {
     switch messageValue {
     case "start":
@@ -328,9 +326,7 @@ private func notificationHandler(contextObject: UnsafeMutableRawPointer?, sessio
       break
     }
     return
-  }
-
-  if messageType == "option" {
+  } else if messageType == "option" {
     let state = messageValue?.first != "!"
     let optionName: String?
     if state {
@@ -359,6 +355,18 @@ private func notificationHandler(contextObject: UnsafeMutableRawPointer?, sessio
         if delegate.enableNotifications {
           delegate.showStatusMessage(msgTextLong: longLabel(), msgTextShort: shortLabel())
         }
+      }
+    }
+    return
+  } else if messageType == "property", let messageValue = messageValue,
+            let eqIndex = messageValue.firstIndex(of: "="), messageValue.first == "_" {
+    let key = String(messageValue[..<eqIndex])
+    let value = String(messageValue[messageValue.index(after: eqIndex)...])
+    Task.detached { @MainActor in
+      do {
+        try delegate.panel?.inputController?.handleReservedProperty(key: key, value: value, for: sessionId)
+      } catch {
+        print("Error processing handleReservedProperty: \(error)")
       }
     }
     return
@@ -399,6 +407,13 @@ private extension SquirrelApplicationDelegate {
     statusItem = item
     applyStatusIcon(asciiMode: false, schemaLabel: nil)
     updateStatusItemVisibility()
+  }
+
+  @objc func inputSourceChanged(_: Notification) {
+    DispatchQueue.main.async { [weak self] in
+      self?.updateStatusItemVisibility()
+      self?.finalizeStrandedComposition()
+    }
   }
 
   func updateStatusItemVisibility() {
